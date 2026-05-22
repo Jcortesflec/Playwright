@@ -1,0 +1,1 @@
+./mvnw clean test -Dheadless=true -Dthreads.num=8

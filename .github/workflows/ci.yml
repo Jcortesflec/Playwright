@@ -1,0 +1,66 @@
+name: CI/CD Playwright
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  test:
+    name: Ejecutar Pruebas E2E Playwright
+    runs-on: ubuntu-latest
+
+    env:
+      HEADLESS: "true"
+
+    container:
+      image: mcr.microsoft.com/playwright/java:v1.44.0-jammy
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v6
+
+      - name: Cache de Maven
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Cache de Allure
+        uses: actions/cache@v5
+        with:
+          path: /opt/allure-2.29.0
+          key: allure-2.29.0
+
+      - name: Cache de Navegadores Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - name: Dar permisos de ejecución a todos los scripts
+        run: chmod +x ./mvnw ./runSuite.sh .github/scripts/*.sh
+
+      - name: Instalar Navegadores de Playwright
+        run: ./.github/scripts/instalar_navegadores.sh
+
+      - name: Ejecutar pruebas
+        run: ./runSuite.sh
+
+      - name: Generar reporte (Single HTML de Allure)
+        if: always()
+        run: ./.github/scripts/generar_allure.sh
+
+      - name: Mostrar resumen en Summary de GitHub
+        if: always()
+        run: ./.github/scripts/generar_summary.sh
+
+      - name: Guardar reporte para descargar
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report.html
+          path: ./allure-temp/index.html
+          retention-days: 3
+          archive: false
